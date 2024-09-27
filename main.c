@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
 
     FILE* outFile = fopen(argv[2], "w+");
 
-    removeRedPixel24_t(&bitmap);
+    removeBluePixel24_t(&bitmap);
     writeToFilePixel24_t(&bitmap, outFile);
 
     fclose(outFile);

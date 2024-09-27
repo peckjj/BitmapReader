@@ -77,6 +77,30 @@ size_t removeRedPixel24_t(bmp_Pixel24_t *bitmap)
 	return numPixels;
 }
 
+size_t removeBluePixel24_t(bmp_Pixel24_t *bitmap)
+{
+	int64_t numPixels = bitmap->dibHeader->width * bitmap->dibHeader->height;
+
+	for (int64_t i = 0; i < numPixels; i++)
+	{
+		bitmap->pixelArray[i].b = 0;
+	}
+
+	return numPixels;
+}
+
+size_t removeGreenPixel24_t(bmp_Pixel24_t *bitmap)
+{
+	int64_t numPixels = bitmap->dibHeader->width * bitmap->dibHeader->height;
+
+	for (int64_t i = 0; i < numPixels; i++)
+	{
+		bitmap->pixelArray[i].g = 0;
+	}
+
+	return numPixels;
+}
+
 size_t writeToFilePixel24_t(bmp_Pixel24_t *bitmap, FILE* outFile)
 {
 	size_t bytesWritten = 0;

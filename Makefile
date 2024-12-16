@@ -1,5 +1,4 @@
-mainTargets = main.c util.o pixel.o image.o
-mainDeps := main.c main.h $(mainTargets)
+mainTargets = main.o util.o pixel.o image.o
 testFile := flower.bmp
 testOutFile := flower_edited.bmp
 FLAGS := -Os
@@ -7,8 +6,11 @@ FLAGS := -Os
 
 # CLEAN_OTHER := *Copy.wav *copy.wav *.txt
 
-go: $(mainDeps)
+go: $(mainTargets)
 	gcc $(mainTargets) -o go $(FLAGS)
+
+main.o: main.c main.h
+	gcc -c main.c $(FLAGS)
 
 util.o: util.c util.h
 	gcc -c util.c $(FLAGS)

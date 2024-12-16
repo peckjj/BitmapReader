@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
     uint32_t calculatedSize = sizeof(BmpFileHeader) + sizeof(DibHeader) + bitmap.postHeaderDataSize +
 	bitmap.dibHeader->rawImageSize + bitmap.postDataSize;
 
-    printf("\tTotal Calculated Size (%u B): %0.2f M\n", calculatedSize, calculatedSize / 1024.0 / 1024.0);
+    printf("\tTotal Calculated Size (%u B): %0.2f MB\n", calculatedSize, calculatedSize / 1024.0 / 1024.0);
 
     fclose(file);
 
@@ -71,20 +71,29 @@ int main(int argc, char* argv[])
 
     if ((dibHeader->width * dibHeader->height * 3) != dibHeader->rawImageSize)
     {
-	printf("Sum' ain't right...\n");
-	printf("I'm hearin' %u, but I'm countin' %u\n", dibHeader->rawImageSize, (dibHeader->width * dibHeader->height * 3));
-//	printf("PX #%d: R[%u] G[%u] B[%u]\n", idx, bitmap.pixelArray[idx].r, bitmap.pixelArray[idx].g, bitmap.pixelArray[idx].b);
-	return -1;
+	unsigned difference = dibHeader->rawImageSize - (dibHeader->width * dibHeader->height * 3);
+
+	if (difference < 0)
+	{
+		fprintf(stderr, "Raw image size is smaller than calculated size. This is impossible.  Difference=%u\n", difference);
+		return -1;
+	}
+
+	printf("Raw image data contains %u more bytes than required space. This is fine if the 'Padding per row' is %u.\n", difference, difference / dibHeader->height);
     }
 
-    randomChannelPixel24_t(&bitmap, 6);
+//    randomChannelPixel24_t(&bitmap, CHAN_RED | CHAN_BLUE | CHAN_GREEN);
 
-    FILE* outFile = fopen(argv[2], "w+");
+    if (argc >= 3)
+    {
+    	FILE* outFile = fopen(argv[2], "w+");
 
-    removeBluePixel24_t(&bitmap);
-    writeToFilePixel24_t(&bitmap, outFile);
+//    	writeToFilePixel24_t(&bitmap, outFile);
 
-    fclose(outFile);
-
+    	fclose(outFile);
+    } else
+    {
+	printf("No output file provided.\n");
+    }
     return 0;
 }

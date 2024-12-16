@@ -43,7 +43,9 @@ size_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE* bitmap)
 		return -1;
 	}
 
-	dest->pixelArray = malloc(dest->dibHeader->width * dest->dibHeader->height * 3);
+	size_t arrayByteCount = dest->dibHeader->width * dest->dibHeader->height * 3;
+
+	dest->pixelArray = malloc(arrayByteCount);
 
 	//if (fread(dest->pixelArray, 1, dest->dibHeader->rawImageSize, bitmap) != dest->dibHeader->rawImageSize)
 	//{
@@ -51,7 +53,14 @@ size_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE* bitmap)
 	//	return -1;
 	//}
 
-	readAllRows_Pixel24_t(dest);
+	printf("Reading pixel data...\n");
+
+	unsigned bytesRead = readAllRows_Pixel24_t(dest, bitmap);
+
+	if (bytesRead != arrayByteCount)
+	{
+		fprintf(stderr, "Read %u bytes (%u pixels), but expected %u bytes (%u pixels)\n", bytesRead, bytesRead / 3, arrayByteCount, arrayByteCount / 3);
+	}
 
 	// Read Post-Image Data
 	dest->postDataSize = dest->bmpHeader->fileSize - (sizeof(BmpFileHeader) + 
@@ -69,27 +78,56 @@ size_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE* bitmap)
 
 unsigned readAllRows_Pixel24_t(bmp_Pixel24_t *dest, FILE* bitmap)
 {
-	long previousFilePosition = ftell(bitmap);
+	size_t bytesWritten = 0; // Will track which Array Index of dest->pixelArray we are on. The size of this array should be Width * Height * 3 bytes per pixel
 
+	// Calculate "bytes per row". BMP files store rows in multiples of 4 bytes (double words). To round off the end, padding is added, and this should be skipped"
+	unsigned bytesPerRow = dest->dibHeader->width * 3;
+	unsigned paddingBytes = bytesPerRow % 4 == 0 ? 0: 4 - (bytesPerRow % 4); // Skip this amound of bytes after reading each row.
+
+	printf("Padding per row=%u\n", paddingBytes);
+
+
+//	printf("Will read %u bytes\n", bytesPerRow * dest->dibHeader->height);
+
+	// Read Image Data
 	if (fseek(bitmap, dest->bmpHeader->dataOffset, SEEK_SET) != 0)
 	{
-		fprintf(stderr, "readAllRows_Pixel24_t(): Could not seek to start of image data.");
+		fprintf(stderr, "readAllRows_Pixel24_t(): fseek() to start of image data has failed.\n");
 		return -1;
 	}
 
-	uint64_t rowSize = dest->dibHeader->width * 3;
-	// Must be a multiple of 4
-	if (rowSize % 4 != 0)
+	size_t fPosition = ftell(bitmap);
+	if (fPosition != dest->bmpHeader->dataOffset)
 	{
-		rowSize = rowSize + (4 - (rowSize % 4));
+		fprintf(stderr, "readAllRows_Pixel24_t(): File stream not at right offset, offset is %l, image data offset is %d\n", fPosition, dest->bmpHeader->dataOffset);
+		return -1;
 	}
 
+	size_t bytesRead = 0;
 
-	if (fseek(bitmap, previousFilePosition, SEEK_SET) != 0)
+	for (int i = 0; i < dest->dibHeader->height; i++)
 	{
-		fprintf(stderr, "readAllRows_Pixel24_t(): Could not return to previous file position. Side effects will follow\n");
+//		printf("Reading row #%d / %d (Bytes per row = %u, width=%d)\n", i + 1, dest->dibHeader->height, bytesPerRow, dest->dibHeader->width);
+
+		bytesRead = fread((void *)&(((uint8_t *)(dest->pixelArray))[bytesWritten]), 1, bytesPerRow, bitmap);
+		if (bytesRead != bytesPerRow)
+		{
+			fprintf(stderr, "readAllRows_Pixel24_t(): Did not read correct number of bytes for current row. Bytes read=%u, expected=%u\n", bytesRead, bytesPerRow);
+			return -1;
+		}
+
+		// Skip padding
+		if (fseek(bitmap, paddingBytes, SEEK_CUR) != 0)
+		{
+			fprintf(stderr, "readAllRows_Pixel24_t(): Could not skip padding bytes. Padding per row=%u\n", paddingBytes);
+			return -1;
+		}
+
+		bytesWritten += bytesRead;
+//		printf("Bytes written: %u, (%u pixels), offset=%u\n", bytesWritten, bytesRead / 3, paddingBytes);
 	}
-	return 0;
+
+	return bytesWritten;
 }
 
 size_t removeRedPixel24_t(bmp_Pixel24_t *bitmap)
@@ -166,7 +204,6 @@ size_t randomChannelPixel24_t(bmp_Pixel24_t *bitmap, ColorChannel channel)
 //		printf("After: %X\n", *pxAddr);
 
 	*/
-		uint32_t *addr = &(bitmap->pixelArray[i]);
 
 		switch (channel)
 		{
@@ -175,11 +212,6 @@ size_t randomChannelPixel24_t(bmp_Pixel24_t *bitmap, ColorChannel channel)
 				break;
 			case CHAN_GREEN:
 				bitmap->pixelArray[i].g = (uint8_t)rand();
-				break;
-			case 6:
-				*addr &= 0xFF000000;
-				*addr += 0xFFFFFF;
- 				printf("New pixel data: %X\n", *addr & 0x00FFFFFF);
 				break;
 			default:
 				bitmap->pixelArray[i].b = (uint8_t)rand();

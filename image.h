@@ -50,6 +50,10 @@ size_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE* bitmap);
 size_t removeRedPixel24_t(bmp_Pixel24_t *bitmap);
 size_t removeBluePixel24_t(bmp_Pixel24_t *bitmap);
 size_t removeGreenPixel24_t(bmp_Pixel24_t *bitmap);
+size_t randomChannelPixel24_t(bmp_Pixel24_t *bitmap, ColorChannel channel);
+
+// Assumes pixelArray field has already been allocated
+unsigned readAllRows_Pixel24_t(bmp_Pixel24_t *dest, FILE* bitmap);
 
 size_t writeToFilePixel24_t(bmp_Pixel24_t *bitmap, FILE* outFile);
 int freeImageDataPixel24_t(bmp_Pixel24_t *bitmap);

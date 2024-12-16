@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <time.h>
 #include "main.h"
 #include "util.h"
 #include "pixel.h"
@@ -8,6 +10,8 @@
 
 int main(int argc, char* argv[])
 {
+    srand(time(NULL));
+
     if (argc < 2)
     {
         printf("No file provided.\n");
@@ -63,11 +67,24 @@ int main(int argc, char* argv[])
 
     fclose(file);
 
+    int idx = 0;
+
+    if ((dibHeader->width * dibHeader->height * 3) != dibHeader->rawImageSize)
+    {
+	printf("Sum' ain't right...\n");
+	printf("I'm hearin' %u, but I'm countin' %u\n", dibHeader->rawImageSize, (dibHeader->width * dibHeader->height * 3));
+//	printf("PX #%d: R[%u] G[%u] B[%u]\n", idx, bitmap.pixelArray[idx].r, bitmap.pixelArray[idx].g, bitmap.pixelArray[idx].b);
+	return -1;
+    }
+
+    randomChannelPixel24_t(&bitmap, 6);
+
     FILE* outFile = fopen(argv[2], "w+");
 
     removeBluePixel24_t(&bitmap);
     writeToFilePixel24_t(&bitmap, outFile);
 
     fclose(outFile);
+
     return 0;
 }

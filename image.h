@@ -6,7 +6,7 @@
 #endif
 
 #ifndef PIXEL
-#include "pixel.h"
+	#include "pixel.h"
 #endif
 
 typedef struct __attribute__((__packed__)) BmpFileHeader

@@ -5,8 +5,12 @@
 #include <time.h>
 #include "main.h"
 #include "util.h"
-#include "pixel.h"
-#include "image.h"
+#ifndef PIXEL
+	#include "pixel.h"
+#endif
+#ifndef IMAGE
+	#include "image.h"
+#endif
 
 int main(int argc, char *argv[])
 {

@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include "image.h"
+#ifndef IMAGE
+	#include "image.h"
+#endif
 
 ssize_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE *bitmap)
 {

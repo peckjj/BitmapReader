@@ -8,7 +8,7 @@
 #include "pixel.h"
 #include "image.h"
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     srand(time(NULL));
 
@@ -24,12 +24,19 @@ int main(int argc, char* argv[])
     DibHeader *dibHeader;
 
     FILE *file = fopen(argv[1], "r");
+
+    if (file == NULL)
+    {
+        fprintf(stderr, "Failed to open %s\n", argv[1]);
+        return -1;
+    }
+
     size_t bytesRead = fread(dataBuf, 1, sizeof(BmpFileHeader) + sizeof(DibHeader), file);
 
-    bmpHeader = (BmpFileHeader*)dataBuf;
-    dibHeader = (DibHeader*)&(dataBuf[sizeof(BmpFileHeader)]);
+    bmpHeader = (BmpFileHeader *)dataBuf;
+    dibHeader = (DibHeader *)&(dataBuf[sizeof(BmpFileHeader)]);
 
-    printf("Header data for %s (bytes read = %u):\n", argv[1], bytesRead);
+    printf("Header data for %s (bytes read = %lu):\n", argv[1], bytesRead);
     printf("\tSignature: %c%c (%s)\n", bmpHeader->signature[0], bmpHeader->signature[1], isSigTypeSupported(bmpHeader->sigCode) ? "Supported" : "Unsupported");
     printf("\tFile Size: (%u B) %0.2f MB\n", bmpHeader->fileSize, bmpHeader->fileSize / 1024.0 / 1024.0);
     printf("\tReserved 1 (unsigned): %u\n", bmpHeader->r1);
@@ -53,7 +60,7 @@ int main(int argc, char* argv[])
 
     if (readBitmapPixelData(&bitmap, file) < 0)
     {
-	return -1;
+        return -1;
     }
 
     printf("Additional Info:\n");
@@ -61,39 +68,52 @@ int main(int argc, char* argv[])
     printf("\tPost-Image Data Size: %u\n", bitmap.postDataSize);
 
     uint32_t calculatedSize = sizeof(BmpFileHeader) + sizeof(DibHeader) + bitmap.postHeaderDataSize +
-	bitmap.dibHeader->rawImageSize + bitmap.postDataSize;
+                              bitmap.dibHeader->rawImageSize + bitmap.postDataSize;
 
     printf("\tTotal Calculated Size (%u B): %0.2f MB\n", calculatedSize, calculatedSize / 1024.0 / 1024.0);
 
     fclose(file);
 
-    int idx = 0;
-
     if ((dibHeader->width * dibHeader->height * 3) != dibHeader->rawImageSize)
     {
-	unsigned difference = dibHeader->rawImageSize - (dibHeader->width * dibHeader->height * 3);
+        unsigned difference = dibHeader->rawImageSize - (dibHeader->width * dibHeader->height * 3);
 
-	if (difference < 0)
-	{
-		fprintf(stderr, "Raw image size is smaller than calculated size. This is impossible.  Difference=%u\n", difference);
-		return -1;
-	}
+        if (difference < 0)
+        {
+            fprintf(stderr, "Raw image size is smaller than calculated size. This is impossible.  Difference=%u\n", difference);
+            return -1;
+        }
 
-	printf("Raw image data contains %u more bytes than required space. This is fine if the 'Padding per row' is %u.\n", difference, difference / dibHeader->height);
+        printf("Raw image data contains %u more bytes than required space. This is fine if the 'Padding per row' is %u.\n", difference, difference / dibHeader->height);
     }
 
-//    randomChannelPixel24_t(&bitmap, CHAN_RED | CHAN_BLUE | CHAN_GREEN);
+    int numPixels = bitmap.dibHeader->height * bitmap.dibHeader->width;
+    ssize_t pixelsModified = randomChannelPixel24_t(&bitmap, CHAN_RED | CHAN_BLUE | CHAN_GREEN);
+
+    if (numPixels != pixelsModified)
+    {
+        fprintf(stderr, "Expected to modify %d pixels, but got %ld.\n", numPixels, pixelsModified);
+    }
 
     if (argc >= 3)
     {
-    	FILE* outFile = fopen(argv[2], "w+");
+        FILE *outFile = fopen(argv[2], "w+");
 
-//    	writeToFilePixel24_t(&bitmap, outFile);
+        if (outFile == NULL)
+        {
+            fprintf(stderr, "Failed to open or create %s for output\n", argv[2]);
+            return -1;
+        }
 
-    	fclose(outFile);
-    } else
+        printf("Writing image data to %s\n", argv[2]);
+
+        writeToFilePixel24_t(&bitmap, outFile);
+
+        fclose(outFile);
+    }
+    else
     {
-	printf("No output file provided.\n");
+        printf("No output file provided.\n");
     }
     return 0;
 }

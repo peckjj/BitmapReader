@@ -3,3 +3,4 @@
 go
 *.bitmap
 *.bmp
+.vscode/*

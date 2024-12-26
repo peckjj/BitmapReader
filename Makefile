@@ -1,7 +1,7 @@
 mainTargets = main.o util.o pixel.o image.o
 testFile := flower.bmp
 testOutFile := flower_edited.bmp
-FLAGS := -Os -Wall
+FLAGS := -Wall -g
 # CC_FLAGS := -lm
 
 # CLEAN_OTHER := *Copy.wav *copy.wav *.txt

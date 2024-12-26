@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #ifndef IMAGE
-	#include "image.h"
+#include "image.h"
 #endif
 
 ssize_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE *bitmap)
@@ -23,7 +23,10 @@ ssize_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE *bitmap)
 		return -1;
 	}
 
-	dest->postHeaderDataSize = (long)(dest->bmpHeader->dataOffset) - fPosition;
+	dest->postHeaderDataSize = (long)(dest->bmpHeader->dataOffset) - (sizeof(BmpFileHeader) + sizeof(DibHeader));
+
+	printf("post header data size = %u\n", dest->postHeaderDataSize);
+
 	dest->postHeaderData = malloc(dest->postHeaderDataSize);
 
 	if (fread(dest->postHeaderData, 1, dest->postHeaderDataSize, bitmap) != dest->postHeaderDataSize)
@@ -61,13 +64,14 @@ ssize_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE *bitmap)
 	}
 
 	// Read Post-Image Data
-	dest->postDataSize = dest->bmpHeader->fileSize - (sizeof(BmpFileHeader) +
-													  sizeof(DibHeader) + dest->postHeaderDataSize + dest->dibHeader->rawImageSize);
+	dest->postDataSize = dest->bmpHeader->fileSize - (sizeof(BmpFileHeader) + sizeof(DibHeader) + dest->postHeaderDataSize + dest->dibHeader->rawImageSize);
 	dest->postData = malloc(dest->postDataSize);
 
-	if (fread(dest->postData, 1, dest->postDataSize, bitmap) != dest->postDataSize)
+	size_t postDataBytesRead = fread(dest->postData, 1, dest->postDataSize, bitmap);
+
+	if (postDataBytesRead != dest->postDataSize)
 	{
-		fprintf(stderr, "readBitmapPixelData(): Failed to read post-image data");
+		fprintf(stderr, "readBitmapPixelData(): Failed to read post-image data. Bytes read=%lu, Bytes expected=%u\n", postDataBytesRead, dest->postDataSize);
 		return -1;
 	}
 

@@ -5,6 +5,45 @@
 #include "image.h"
 #endif
 
+int32_t calcIdx(bmp_Pixel24_t *bmp, uint16_t x, uint16_t y)
+{
+	return bmp->dibHeader->width * y + x;
+}
+
+Pixel24_t* getPixel(bmp_Pixel24_t *bmp, uint16_t x, uint16_t y)
+{
+	int32_t idx = calcIdx(bmp, x, y);
+
+	if (idx < 0 || idx >= bmp->dibHeader->width * bmp->dibHeader->height)
+	{
+		fprintf(stderr, "getPixel(): Index %d is out of bounds.\n", idx);
+		return NULL;
+	}
+
+	return &(bmp->pixelArray[idx]);
+}
+
+int32_t setPixel(bmp_Pixel24_t *bitmap, uint16_t x, uint16_t y, Pixel24_t *value, ColorChannel channel)
+{
+	int32_t idx = calcIdx(bitmap, x, y);
+
+//	printf("Modifying pixel w/ index: %d\n", idx);
+
+	if (idx < 0 || idx >= bitmap->dibHeader->width * bitmap->dibHeader->height)
+	{
+		fprintf(stderr, "setPixel(): Index %d is out of bounds.\n", idx);
+		return -1;
+	}
+
+	Pixel24_t *target = &(bitmap->pixelArray[idx]);
+
+	if (channel & CHAN_RED) target->r = value->r;
+	if (channel & CHAN_GREEN) target->g = value->g;
+	if (channel & CHAN_BLUE) target->b = value->b;
+
+	return idx;
+}
+
 ssize_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE *bitmap)
 {
 	// Read Post- Header Data
@@ -25,7 +64,7 @@ ssize_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE *bitmap)
 
 	dest->postHeaderDataSize = (long)(dest->bmpHeader->dataOffset) - (sizeof(BmpFileHeader) + sizeof(DibHeader));
 
-	printf("post header data size = %u\n", dest->postHeaderDataSize);
+//	printf("post header data size = %u\n", dest->postHeaderDataSize);
 
 	dest->postHeaderData = malloc(dest->postHeaderDataSize);
 
@@ -64,7 +103,7 @@ ssize_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE *bitmap)
 	}
 
 	// Read Post-Image Data
-	dest->postDataSize = dest->bmpHeader->fileSize - (sizeof(BmpFileHeader) + sizeof(DibHeader) + dest->postHeaderDataSize + dest->dibHeader->rawImageSize);
+	dest->postDataSize = dest->bmpHeader->fileSize - (sizeof(BmpFileHeader) + sizeof(DibHeader) + dest->postHeaderDataSize + arrayByteCount);
 	dest->postData = malloc(dest->postDataSize);
 
 	size_t postDataBytesRead = fread(dest->postData, 1, dest->postDataSize, bitmap);

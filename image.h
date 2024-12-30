@@ -56,6 +56,9 @@ ssize_t removeBluePixel24_t(bmp_Pixel24_t *bitmap);
 ssize_t removeGreenPixel24_t(bmp_Pixel24_t *bitmap);
 ssize_t randomChannelPixel24_t(bmp_Pixel24_t *bitmap, ColorChannel channel);
 
+int32_t setPixel(bmp_Pixel24_t *bitmap, uint16_t x, uint16_t y, Pixel24_t *value, ColorChannel channel);
+Pixel24_t* getPixel(bmp_Pixel24_t *bmp, uint16_t x, uint16_t y);
+
 // Assumes pixelArray field has already been allocated
 ssize_t readAllRows_Pixel24_t(bmp_Pixel24_t *dest, FILE *bitmap);
 

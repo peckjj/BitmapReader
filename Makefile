@@ -9,7 +9,7 @@ FLAGS := -Wall -g
 go: $(mainTargets)
 	gcc $(mainTargets) -o go $(FLAGS)
 
-main.o: main.c main.h
+main.o: main.c main.h image.o pixel.o util.o
 	gcc -c main.c $(FLAGS)
 
 util.o: util.c util.h
@@ -18,7 +18,7 @@ util.o: util.c util.h
 pixel.o: pixel.c pixel.h
 	gcc -c pixel.c $(FLAGS)
 
-image.o: image.c image.h
+image.o: image.c image.h pixel.o util.o
 	gcc -c image.c $(FLAGS)
 
 clean:

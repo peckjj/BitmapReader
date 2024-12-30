@@ -12,6 +12,22 @@
 #include "image.h"
 #endif
 
+void swapPixel(bmp_Pixel24_t *bmp, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2)
+{
+	Pixel24_t *a, *b;
+	Pixel24_t temp;
+
+	a = getPixel(bmp, x1, y1);
+	b = getPixel(bmp, x2, y2);
+
+	if (a == NULL || b == NULL) return;
+
+	temp = *a;
+
+	setPixel(bmp, x1, y1, b, CHAN_RED | CHAN_GREEN | CHAN_BLUE);
+	setPixel(bmp, x2, y2, &temp, CHAN_RED | CHAN_GREEN | CHAN_BLUE);
+}
+
 int main(int argc, char *argv[])
 {
     int ERR = 0;
@@ -54,8 +70,6 @@ int main(int argc, char *argv[])
         bmpHeader = (BmpFileHeader *)dataBuf;
         dibHeader = (DibHeader *)&(dataBuf[sizeof(BmpFileHeader)]);
 
-	printf("%c%c\n", bmpHeader->signature[0], bmpHeader->signature[1]);
-
         if (dibHeader->bitsPerPixel != 24)
         {
             printf("The image does not use 24 bits (3 bytes) per pixel. This is whack and the image format is not supported.\n");
@@ -93,22 +107,24 @@ int main(int argc, char *argv[])
                 ERR = -1;
             }
 
-            printf("Raw image data contains %u more bytes than required space. This is fine if the 'Padding per row' is %u.\n", difference, difference / dibHeader->height);
+            printf("Raw image data contains %u more bytes than required space. It could be that the \"raw image size\" in the file metadata is incorrect or unset. This is also fine if the 'Padding per row' is %u.\n", difference, difference / dibHeader->height);
         }
     }
 
     if (!ERR)
     {
-        int numPixels = bitmap.dibHeader->height * bitmap.dibHeader->width;
-        ssize_t pixelsModified = randomChannelPixel24_t(&bitmap, CHAN_RED | CHAN_BLUE | CHAN_GREEN);
-
-        if (numPixels != pixelsModified)
-        {
-            fprintf(stderr, "Expected to modify %d pixels, but got %ld.\n", numPixels, pixelsModified);
-            ERR = -1;
-        }
+	for (int row = 0; row < bitmap.dibHeader->height / 2; row++)
+	{
+		for (int col = 0; col < bitmap.dibHeader->width; col++)
+		{
+			printf("(%d, %d) -> (%d, %d)\n", col, row, col, bitmap.dibHeader->height - row - 1);
+			swapPixel(&bitmap, col, row, bitmap.dibHeader->height - row - 1, col);
+		}
+	}
     }
 
+
+    // Write image to file if filename arg was provided
     if (!ERR)
     {
         if (argc >= 3)
@@ -132,7 +148,8 @@ int main(int argc, char *argv[])
             printf("No output file provided.\n");
         }
     }
-    return 0;
+
+    return ERR;
 }
 
 ssize_t writeInfo(char *out, size_t outMaxize, bmp_Pixel24_t *bitmap)

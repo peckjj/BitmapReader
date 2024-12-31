@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <string.h>
 #ifndef IMAGE
 #include "image.h"
 #endif
@@ -64,11 +65,11 @@ ssize_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE *bitmap)
 
 	dest->postHeaderDataSize = (long)(dest->bmpHeader->dataOffset) - (sizeof(BmpFileHeader) + sizeof(DibHeader));
 
-//	printf("post header data size = %u\n", dest->postHeaderDataSize);
+	printf("Allocating %lu bytes for postHeaderDataSize\n", dest->postHeaderDataSize);
 
 	dest->postHeaderData = malloc(dest->postHeaderDataSize);
 
-	if (fread(dest->postHeaderData, 1, dest->postHeaderDataSize, bitmap) != dest->postHeaderDataSize)
+	if (dest->postHeaderDataSize && fread(dest->postHeaderData, 1, dest->postHeaderDataSize, bitmap) != dest->postHeaderDataSize)
 	{
 		fprintf(stderr, "readBitmapPixelData(): Failed to read post-header data");
 		return -1;
@@ -90,31 +91,55 @@ ssize_t readBitmapPixelData(bmp_Pixel24_t *dest, FILE *bitmap)
 
 	size_t arrayByteCount = dest->dibHeader->width * dest->dibHeader->height * 3;
 
+
+	printf("Allocating %lu bytes for pixel data\n", arrayByteCount);
+
 	dest->pixelArray = malloc(arrayByteCount);
 
-	printf("Reading pixel data...\n");
+	printf("Reading pixel data, (arrayByteCount = %lu)\n", arrayByteCount);
 
-	unsigned bytesRead = readAllRows_Pixel24_t(dest, bitmap);
+	ssize_t bytesRead = readAllRows_Pixel24_t(dest, bitmap);
 
-	if (bytesRead != arrayByteCount)
+	if ( bytesRead != (arrayByteCount + (dest->padding * dest->dibHeader->height)) )
 	{
-		fprintf(stderr, "Read %u bytes (%u pixels), but expected %lu bytes (%lu pixels)\n", bytesRead, bytesRead / 3, arrayByteCount, arrayByteCount / 3);
-		return -1;
+		fprintf(stderr, "Read %lu bytes, but expected %lu bytes\n", bytesRead, (arrayByteCount + (dest->padding * dest->dibHeader->height)));
+//		return -1;
 	}
 
+	printf("Bytes Read: %lu | Pixel Bytes: %lu | Expected: %lu\n", bytesRead, arrayByteCount, (arrayByteCount + (dest->padding * dest->dibHeader->height)));
+
 	// Read Post-Image Data
-	dest->postDataSize = dest->bmpHeader->fileSize - (sizeof(BmpFileHeader) + sizeof(DibHeader) + dest->postHeaderDataSize + arrayByteCount);
+	dest->postDataSize = dest->bmpHeader->fileSize - (sizeof(BmpFileHeader) + sizeof(DibHeader) + dest->postHeaderDataSize + bytesRead);
+
+	printf("Post data size = %lu\n", dest->postDataSize);
+
 	dest->postData = malloc(dest->postDataSize);
 
 	size_t postDataBytesRead = fread(dest->postData, 1, dest->postDataSize, bitmap);
 
 	if (postDataBytesRead != dest->postDataSize)
 	{
-		fprintf(stderr, "readBitmapPixelData(): Failed to read post-image data. Bytes read=%lu, Bytes expected=%u\n", postDataBytesRead, dest->postDataSize);
+		fprintf(stderr, "readBitmapPixelData(): Failed to read post-image data. Bytes read=%lu, Bytes expected=%lu\n", postDataBytesRead, dest->postDataSize);
 		return -1;
 	}
 
+	printf("DONE\n");
+
 	return 0;
+}
+
+void testAlloc(char *s)
+{
+	char *myData = malloc(100);
+	strncpy(myData, s, 100);
+	printf("probe: %s\n", myData);
+
+	if (myData == NULL)
+	{
+		printf("myData is NULL\n");
+	}
+
+	free(myData);
 }
 
 ssize_t readAllRows_Pixel24_t(bmp_Pixel24_t *dest, FILE *bitmap)
@@ -123,10 +148,9 @@ ssize_t readAllRows_Pixel24_t(bmp_Pixel24_t *dest, FILE *bitmap)
 
 	// Calculate "bytes per row". BMP files store rows in multiples of 4 bytes (double words). To round off the end, padding is added, and this should be skipped"
 	unsigned bytesPerRow = dest->dibHeader->width * 3;
-	unsigned paddingBytes = bytesPerRow % 4 == 0 ? 0 : 4 - (bytesPerRow % 4); // Skip this amount of bytes after reading each row.
+	uint8_t paddingBytes = bytesPerRow % 4 == 0 ? 0 : 4 - (bytesPerRow % 4); // Skip this amount of bytes after reading each row.
 
-	printf("Padding per row=%u\n", paddingBytes);
-
+	dest->padding = paddingBytes;
 	//	printf("Will read %u bytes\n", bytesPerRow * dest->dibHeader->height);
 
 	// Read Image Data
@@ -149,7 +173,8 @@ ssize_t readAllRows_Pixel24_t(bmp_Pixel24_t *dest, FILE *bitmap)
 	{
 		//		printf("Reading row #%d / %d (Bytes per row = %u, width=%d)\n", i + 1, dest->dibHeader->height, bytesPerRow, dest->dibHeader->width);
 
-		bytesRead = fread((void *)&(((uint8_t *)(dest->pixelArray))[bytesWritten]), 1, bytesPerRow, bitmap);
+		bytesRead = fread(&(dest->pixelArray[i * dest->dibHeader->width]), 3, dest->dibHeader->width, bitmap) * 3;
+
 		if (bytesRead != bytesPerRow)
 		{
 			fprintf(stderr, "readAllRows_Pixel24_t(): Did not read correct number of bytes for current row. Bytes read=%lu, expected=%u\n", bytesRead, bytesPerRow);
@@ -163,11 +188,13 @@ ssize_t readAllRows_Pixel24_t(bmp_Pixel24_t *dest, FILE *bitmap)
 			return -1;
 		}
 
-		bytesWritten += bytesRead;
+		bytesWritten += bytesRead + paddingBytes;
 		//		printf("Bytes written: %u, (%u pixels), offset=%u\n", bytesWritten, bytesRead / 3, paddingBytes);
 	}
 
-	return bytesWritten;
+	printf("Casting bytesWritten %ld\n", (ssize_t)bytesWritten);
+
+	return (ssize_t)bytesWritten;
 }
 
 ssize_t removeRedPixel24_t(bmp_Pixel24_t *bitmap)
@@ -231,13 +258,15 @@ ssize_t writeToFilePixel24_t(bmp_Pixel24_t *bitmap, FILE *outFile)
 	// bytesWritten += fwrite(bitmap->pixelArray, 1, bitmap->dibHeader->width * bitmap->dibHeader->height * 3, outFile);
 
 	int32_t widthInBytes = bitmap->dibHeader->width * 3;
-	int paddingBytes = widthInBytes % 4 == 0 ? 0 : (4 - (widthInBytes % 4));
+	uint8_t paddingBytes = widthInBytes % 4 == 0 ? 0 : (4 - (widthInBytes % 4));
+
+	bitmap->padding = paddingBytes;
 
 	printf("Padding each row with %d bytes.\n", paddingBytes);
 
 	for (int i = 0; i < bitmap->dibHeader->height; i++)
 	{
-		bytesWritten += fwrite(&((bitmap->pixelArray[i * bitmap->dibHeader->width])), 3, bitmap->dibHeader->width, outFile);
+		bytesWritten += (fwrite(&((bitmap->pixelArray[i * bitmap->dibHeader->width])), 3, bitmap->dibHeader->width, outFile)) * 3;
 		for (int ii = 0; ii < paddingBytes; ii++)
 		{
 			bytesWritten += fwrite(PADDING_BYTE, 1, 1, outFile);
@@ -245,6 +274,16 @@ ssize_t writeToFilePixel24_t(bmp_Pixel24_t *bitmap, FILE *outFile)
 	}
 
 	bytesWritten += fwrite(bitmap->postData, 1, bitmap->postDataSize, outFile);
+
+	// rewrite file size
+	fseek(outFile, 2, SEEK_SET);
+
+	uint32_t fileSize = (uint32_t)bytesWritten;
+
+	printf("Updating file size to %u, previously %u (bytes written = %lu)\n", fileSize, bitmap->bmpHeader->fileSize, bytesWritten);
+
+	fwrite(&fileSize, sizeof(uint32_t), 1, outFile);
+
 	return bytesWritten;
 }
 

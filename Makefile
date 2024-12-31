@@ -1,7 +1,7 @@
 mainTargets = main.o util.o pixel.o image.o
 testFile := flower.bmp
 testOutFile := flower_edited.bmp
-FLAGS := -Wall -g
+FLAGS := -Wall -g -Os
 # CC_FLAGS := -lm
 
 # CLEAN_OTHER := *Copy.wav *copy.wav *.txt
@@ -25,5 +25,6 @@ clean:
 	rm ./go *.o -f
 
 test:
-	make go
-	./go $(testFile) $(testOutFile)
+	make clean
+	make
+	./go z gen

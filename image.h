@@ -9,6 +9,8 @@
 #include "pixel.h"
 #endif
 
+void testAlloc(char *s);
+
 typedef struct __attribute__((__packed__)) BmpFileHeader
 {
     union
@@ -42,11 +44,12 @@ typedef struct bmp_Pixel24_t
     char *fileName;
     BmpFileHeader *bmpHeader;
     DibHeader *dibHeader;
-    uint32_t postHeaderDataSize;
+    size_t postHeaderDataSize;
     char *postHeaderData;
     Pixel24_t *pixelArray;
-    uint32_t postDataSize;
+    size_t postDataSize;
     char *postData;
+    uint8_t padding;
 } bmp_Pixel24_t;
 
 // Pixel24_t type functions
